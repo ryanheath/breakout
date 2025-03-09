@@ -15,6 +15,20 @@ This is a recreation of the classic Breakout arcade game where the player contro
 - Score tracking
 - Sound effects
 
+## Screenshots
+
+![Menu](resources/screens-shots/Screenshot-startmenu.png)
+*Game menu screen*
+
+![Gameplay](resources/screens-shots/Screenshot-gameplay.png)
+*Main gameplay showing paddle, ball, and colorful bricks*
+
+![Game Over](resources/screens-shots/Screenshot-gameover.png)
+*Game Over*
+
+![High scores](resources/screens-shots/Screenshot-highscores.png)
+*High scores are saved to a json file*
+
 ## Controls
 
 - **Left/Right Arrow Keys**: Move paddle
