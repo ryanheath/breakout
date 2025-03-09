@@ -4,6 +4,12 @@ public class StateManager(GameState gameState) : ManagerBase(gameState)
 {
     private float _levelCompletionTimer = 0;
     private const float LevelAdvanceDelay = 2.0f;
+    private bool _isBonusRoundAvailable = false;
+    private bool _inBonusRound = false;
+    private readonly List<KeyboardKey> _cheatCodeSequence = new List<KeyboardKey> { KeyboardKey.B, KeyboardKey.O, KeyboardKey.N, KeyboardKey.U, KeyboardKey.S };
+    private readonly List<KeyboardKey> _currentCheatInput = new List<KeyboardKey>();
+    private float _cheatInputTimer = 0f;
+    private const float CheatInputTimeout = 2.0f; // 2 seconds timeout between key presses
 
     public override void Initialize()
     {
@@ -13,6 +19,8 @@ public class StateManager(GameState gameState) : ManagerBase(gameState)
         EventBus.Subscribe<AllLevelsCompletedEvent>(OnAllLevelsCompleted);
         EventBus.Subscribe<AllBricksDestroyedEvent>(OnAllBricksDestroyed);
         EventBus.Subscribe<GameRestartEvent>(OnGameRestart);
+        EventBus.Subscribe<BonusRoundRequestEvent>(OnBonusRoundRequest);
+        EventBus.Subscribe<BonusRoundCompletedEvent>(OnBonusRoundCompleted);
     }
 
     public override void Cleanup()
@@ -23,6 +31,8 @@ public class StateManager(GameState gameState) : ManagerBase(gameState)
         EventBus.Unsubscribe<AllLevelsCompletedEvent>(OnAllLevelsCompleted);
         EventBus.Unsubscribe<AllBricksDestroyedEvent>(OnAllBricksDestroyed);
         EventBus.Unsubscribe<GameRestartEvent>(OnGameRestart);
+        EventBus.Unsubscribe<BonusRoundRequestEvent>(OnBonusRoundRequest);
+        EventBus.Unsubscribe<BonusRoundCompletedEvent>(OnBonusRoundCompleted);
     }
     
     private void OnAllBricksDestroyed(AllBricksDestroyedEvent evt)
@@ -71,7 +81,10 @@ public class StateManager(GameState gameState) : ManagerBase(gameState)
     
     private void OnAllLevelsCompleted(AllLevelsCompletedEvent evt)
     {
-
+        // Instead of ending the game, offer a bonus round
+        _levelCompletionTimer = 0;
+        _isBonusRoundAvailable = true;
+        gameState.SetGameWon();
     }
 
     private void OnGameRestart(GameRestartEvent evt)
@@ -88,6 +101,21 @@ public class StateManager(GameState gameState) : ManagerBase(gameState)
                 
         // Set game state to BallLost to position ball and wait for player input
         gameState.SetBallLost();
+        _isBonusRoundAvailable = false;
+        _inBonusRound = false;
+    }
+
+    private void OnBonusRoundRequest(BonusRoundRequestEvent evt)
+    {
+        _inBonusRound = true;
+        gameState.StartBonusRound();
+    }
+
+    private void OnBonusRoundCompleted(BonusRoundCompletedEvent evt)
+    {
+        _inBonusRound = false;
+        gameState.SetGameWon();
+        EventBus.Publish(new GameWonEvent(gameState.Score));
     }
 
     public override void Update(float deltaTime)
@@ -101,8 +129,85 @@ public class StateManager(GameState gameState) : ManagerBase(gameState)
         {
             UpdateBallLost();
         }
+
+        // Update cheat code input timer
+        if (_currentCheatInput.Count > 0)
+        {
+            _cheatInputTimer += deltaTime;
+            if (_cheatInputTimer >= CheatInputTimeout)
+            {
+                // Reset cheat code if timeout occurs
+                _currentCheatInput.Clear();
+                _cheatInputTimer = 0f;
+            }
+        }
+
+        // Check for cheat code input when not in bonus round
+        if (!gameState.InBonusRound && 
+            (gameState.CurrentState == GameState.State.Playing ||
+             gameState.CurrentState == GameState.State.BallLost))
+        {
+            CheckForCheatCode();
+        }
     }
     
+    private void CheckForCheatCode()
+    {
+        // Get the key that was just pressed
+        for (KeyboardKey key = KeyboardKey.A; key <= KeyboardKey.Z; key++)
+        {
+            if (Raylib.IsKeyPressed(key))
+            {
+                // Add key to current input sequence
+                _currentCheatInput.Add(key);
+                _cheatInputTimer = 0f; // Reset timer on new input
+                
+                // If sequence is too long, remove first element
+                if (_currentCheatInput.Count > _cheatCodeSequence.Count)
+                {
+                    _currentCheatInput.RemoveAt(0);
+                }
+                
+                // Check if the sequence matches the cheat code
+                if (_currentCheatInput.Count == _cheatCodeSequence.Count)
+                {
+                    bool match = true;
+                    for (int i = 0; i < _cheatCodeSequence.Count; i++)
+                    {
+                        if (_currentCheatInput[i] != _cheatCodeSequence[i])
+                        {
+                            match = false;
+                            break;
+                        }
+                    }
+                    
+                    if (match)
+                    {
+                        // Cheat code activated! Trigger bonus round
+                        ActivateBonusRoundCheat();
+                    }
+                }
+                
+                break; // Only process one key press per frame
+            }
+        }
+    }
+    
+    private void ActivateBonusRoundCheat()
+    {
+        // Clear the current cheat input
+        _currentCheatInput.Clear();
+        
+        // Trigger the bonus round immediately
+        EventBus.Publish(new BonusRoundRequestEvent(true));
+        
+        // Set game state to ball lost to allow player to launch
+        gameState.SetBallLost();
+        
+        // Show message about cheat being activated
+        EventBus.Publish(new CheatActivatedEvent("BONUS ROUND"));
+    }
+
     private void UpdateLevelCompletion(float deltaTime)
     {
         _levelCompletionTimer += deltaTime;
@@ -120,7 +225,14 @@ public class StateManager(GameState gameState) : ManagerBase(gameState)
                 // After advancing, reset the state to BallLost to allow the player to launch the ball
                 gameState.SetBallLost();
             }
-            // If this was the last level, keep the game won state
+            else if (_isBonusRoundAvailable)
+            {
+                // All levels completed, start the bonus round
+                _isBonusRoundAvailable = false; // Ensure we only offer the bonus round once
+                EventBus.Publish(new BonusRoundRequestEvent());
+                gameState.SetBallLost(); // Wait for player to launch the ball
+            }
+            // If this was the last level and no bonus round available, keep the game won state
             // Let the player restart with Enter
         }
     }

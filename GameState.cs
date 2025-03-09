@@ -108,12 +108,32 @@ public class GameState(int screenWidth, int screenHeight, string windowTitle)
     public void SetMainMenu() => SetState(State.MainMenu);
     public void SetPauseMenu() => SetState(State.PauseMenu);
     
+    public bool InBonusRound { get; private set; } = false;
+    private int _scoreMultiplier = 1;
+
+    public void StartBonusRound()
+    {
+        InBonusRound = true;
+        // Any other special bonus round settings can go here
+    }
+
+    public void EndBonusRound()
+    {
+        InBonusRound = false;
+        _scoreMultiplier = 1;
+    }
+
+    public void SetScoreMultiplier(int multiplier)
+    {
+        _scoreMultiplier = multiplier;
+    }
+
     public void AddScore(int points)
     {
-        Score += points;
+        Score += (points * _scoreMultiplier);
         EventBus.Publish(new ScoreChangedEvent(Score));
     }
-    
+
     public bool LoseLife()
     {
         Lives--;
@@ -138,6 +158,8 @@ public class GameState(int screenWidth, int screenHeight, string windowTitle)
         Score = 0;
         Lives = Math.Min(initialLives, MaxLives);
         ResetBallAndPaddle();
+        InBonusRound = false;
+        _scoreMultiplier = 1;
         
         EventBus.Publish(new ScoreChangedEvent(Score));
         EventBus.Publish(new LivesChangedEvent(Lives));

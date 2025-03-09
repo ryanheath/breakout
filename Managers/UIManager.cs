@@ -15,6 +15,13 @@ public class UIManager(GameState gameState) : ManagerBase(gameState)
     private float _soundVolumeNotificationTimer = 0f;
     private const float SoundVolumeNotificationDuration = 2f;
     private float _currentSoundVolume = 1.0f;
+    private bool _showBonusRoundMessage = false;
+    private float _bonusMessageTimer = 0f;
+    private const float BonusMessageDuration = 3f;
+    private bool _showCheatActivatedMessage = false;
+    private float _cheatMessageTimer = 0f;
+    private const float CheatMessageDuration = 3f;
+    private string _cheatName = "";
     
     public override void Initialize()
     {
@@ -29,8 +36,10 @@ public class UIManager(GameState gameState) : ManagerBase(gameState)
         EventBus.Subscribe<GameRestartEvent>(OnGameRestart);
         EventBus.Subscribe<ScoreChangedEvent>(OnScoreChanged);
         EventBus.Subscribe<MusicToggleEvent>(OnMusicToggle);
-        EventBus.Subscribe<ViewHighScoresEvent>(OnViewHighScores); // Add this line
+        EventBus.Subscribe<ViewHighScoresEvent>(OnViewHighScores);
         EventBus.Subscribe<SoundVolumeChangedEvent>(OnSoundVolumeChanged);
+        EventBus.Subscribe<BonusRoundStartedEvent>(OnBonusRoundStarted);
+        EventBus.Subscribe<CheatActivatedEvent>(OnCheatActivated);
     }
     
     public override void Cleanup()
@@ -39,13 +48,14 @@ public class UIManager(GameState gameState) : ManagerBase(gameState)
         EventBus.Unsubscribe<GameRestartEvent>(OnGameRestart);
         EventBus.Unsubscribe<ScoreChangedEvent>(OnScoreChanged);
         EventBus.Unsubscribe<MusicToggleEvent>(OnMusicToggle);
-        EventBus.Unsubscribe<ViewHighScoresEvent>(OnViewHighScores); // Add this line
+        EventBus.Unsubscribe<ViewHighScoresEvent>(OnViewHighScores);
         EventBus.Unsubscribe<SoundVolumeChangedEvent>(OnSoundVolumeChanged);
+        EventBus.Unsubscribe<BonusRoundStartedEvent>(OnBonusRoundStarted);
+        EventBus.Unsubscribe<CheatActivatedEvent>(OnCheatActivated);
         
         _highScoreManager.Cleanup();
     }
     
-    // Add this event handler
     private void OnViewHighScores(ViewHighScoresEvent evt)
     {
         _showHighScores = true;
@@ -92,6 +102,19 @@ public class UIManager(GameState gameState) : ManagerBase(gameState)
         _currentSoundVolume = evt.Volume;
     }
 
+    private void OnBonusRoundStarted(BonusRoundStartedEvent evt)
+    {
+        _showBonusRoundMessage = true;
+        _bonusMessageTimer = 0f;
+    }
+
+    private void OnCheatActivated(CheatActivatedEvent evt)
+    {
+        _showCheatActivatedMessage = true;
+        _cheatMessageTimer = 0f;
+        _cheatName = evt.CheatName;
+    }
+
     public override void Update(float deltaTime)
     {
         // Update music toggle notification timer
@@ -111,6 +134,26 @@ public class UIManager(GameState gameState) : ManagerBase(gameState)
             if (_soundVolumeNotificationTimer >= SoundVolumeNotificationDuration)
             {
                 _showSoundVolumeNotification = false;
+            }
+        }
+        
+        // Update bonus round message timer
+        if (_showBonusRoundMessage)
+        {
+            _bonusMessageTimer += deltaTime;
+            if (_bonusMessageTimer >= BonusMessageDuration)
+            {
+                _showBonusRoundMessage = false;
+            }
+        }
+        
+        // Update cheat activation message timer
+        if (_showCheatActivatedMessage)
+        {
+            _cheatMessageTimer += deltaTime;
+            if (_cheatMessageTimer >= CheatMessageDuration)
+            {
+                _showCheatActivatedMessage = false;
             }
         }
         
@@ -223,6 +266,60 @@ public class UIManager(GameState gameState) : ManagerBase(gameState)
                 break;
         }
 
+        // Draw bonus round specific UI if needed
+        if (gameState.InBonusRound)
+        {
+            // Add a "BONUS ROUND" indicator
+            string bonusText = "BONUS ROUND";
+            Raylib.DrawText(bonusText, 
+                gameState.ScreenWidth - Raylib.MeasureText(bonusText, 20) - 10, 
+                40, 20, Color.Gold);
+                
+            // Show "Double Points!" text
+            Raylib.DrawText("Double Points!", 
+                gameState.ScreenWidth - Raylib.MeasureText("Double Points!", 16) - 10, 
+                65, 16, Color.Orange);
+        }
+
+        // Show bonus round notification if needed
+        if (_showBonusRoundMessage)
+        {
+            float alpha = 1.0f;
+            if (_bonusMessageTimer > BonusMessageDuration - 1.0f)
+            {
+                alpha = 1.0f - (_bonusMessageTimer - (BonusMessageDuration - 1.0f));
+            }
+            
+            Color messageColor = Color.Gold;
+            messageColor.A = (byte)(255 * alpha);
+            
+            Raylib.DrawRectangle(
+                gameState.ScreenWidth / 2 - 200,
+                gameState.ScreenHeight / 3 - 60,
+                400, 120,
+                new Color((byte)0, (byte)0, (byte)0, (byte)(180 * alpha))
+            );
+            
+            string bonusTitle = "BONUS ROUND!";
+            string bonusDesc = "Double points for all bricks!";
+            string bonusDesc2 = "Clear all bricks for a big score bonus!";
+            
+            Raylib.DrawText(bonusTitle, 
+                gameState.ScreenWidth / 2 - Raylib.MeasureText(bonusTitle, 30) / 2, 
+                gameState.ScreenHeight / 3 - 45, 
+                30, messageColor);
+                
+            Raylib.DrawText(bonusDesc, 
+                gameState.ScreenWidth / 2 - Raylib.MeasureText(bonusDesc, 20) / 2, 
+                gameState.ScreenHeight / 3, 
+                20, messageColor);
+                
+            Raylib.DrawText(bonusDesc2, 
+                gameState.ScreenWidth / 2 - Raylib.MeasureText(bonusDesc2, 18) / 2, 
+                gameState.ScreenHeight / 3 + 30, 
+                18, messageColor);
+        }
+
         // Draw music toggle notification if active
         if (_showMusicToggleNotification)
         {
@@ -270,6 +367,39 @@ public class UIManager(GameState gameState) : ManagerBase(gameState)
             Raylib.DrawRectangle(barX, barY, barWidth, barHeight, Color.DarkGray);
             // Draw filled portion
             Raylib.DrawRectangle(barX, barY, (int)(barWidth * _currentSoundVolume), barHeight, Color.Green);
+        }
+
+        // Draw cheat activation message if active
+        if (_showCheatActivatedMessage)
+        {
+            float alpha = 1.0f;
+            if (_cheatMessageTimer > CheatMessageDuration - 1.0f)
+            {
+                alpha = 1.0f - (_cheatMessageTimer - (CheatMessageDuration - 1.0f));
+            }
+            
+            Color messageColor = Color.Purple;
+            messageColor.A = (byte)(255 * alpha);
+            
+            Raylib.DrawRectangle(
+                gameState.ScreenWidth / 2 - 150,
+                gameState.ScreenHeight / 4 - 40,
+                300, 80,
+                new Color((byte)0, (byte)0, (byte)0, (byte)(180 * alpha))
+            );
+            
+            string cheatTitle = "CHEAT ACTIVATED!";
+            string cheatDesc = _cheatName;
+            
+            Raylib.DrawText(cheatTitle, 
+                gameState.ScreenWidth / 2 - Raylib.MeasureText(cheatTitle, 24) / 2, 
+                gameState.ScreenHeight / 4 - 30, 
+                24, messageColor);
+                
+            Raylib.DrawText(cheatDesc, 
+                gameState.ScreenWidth / 2 - Raylib.MeasureText(cheatDesc, 20) / 2, 
+                gameState.ScreenHeight / 4, 
+                20, messageColor);
         }
     }
     

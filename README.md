@@ -11,9 +11,11 @@ This is a recreation of the classic Breakout arcade game where the player contro
 - Responsive paddle control
 - Physics-based ball movement
 - Multiple levels with different brick configurations
+- Bonus round with double points after completing all levels
 - Power-ups
 - Score tracking
 - Sound effects
+- Cheat codes (try typing "BONUS" during gameplay)
 
 ## Screenshots
 

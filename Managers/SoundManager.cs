@@ -90,6 +90,9 @@ public class SoundManager(GameState gameState) : ManagerBase(gameState)
         EventBus.Subscribe<GameResumedEvent>(OnGameResumed);
         EventBus.Subscribe<PowerUpActivatedEvent>(OnPowerUpActivated);
         EventBus.Subscribe<PowerUpExpiredEvent>(OnPowerUpExpired);
+        EventBus.Subscribe<BonusRoundStartedEvent>(OnBonusRoundStarted);
+        EventBus.Subscribe<BonusRoundCompletedEvent>(OnBonusRoundCompleted);
+        EventBus.Subscribe<CheatActivatedEvent>(OnCheatActivated);
         
         // Start main menu music if we're in the main menu
         if (gameState.CurrentState == GameState.State.MainMenu)
@@ -117,6 +120,9 @@ public class SoundManager(GameState gameState) : ManagerBase(gameState)
         EventBus.Unsubscribe<GameResumedEvent>(OnGameResumed);
         EventBus.Unsubscribe<PowerUpActivatedEvent>(OnPowerUpActivated);
         EventBus.Unsubscribe<PowerUpExpiredEvent>(OnPowerUpExpired);
+        EventBus.Unsubscribe<BonusRoundStartedEvent>(OnBonusRoundStarted);
+        EventBus.Unsubscribe<BonusRoundCompletedEvent>(OnBonusRoundCompleted);
+        EventBus.Unsubscribe<CheatActivatedEvent>(OnCheatActivated);
 
         // Unload sounds
         foreach (var sound in _sounds.Values)
@@ -358,6 +364,43 @@ public class SoundManager(GameState gameState) : ManagerBase(gameState)
             // Reset music speed when power-up expires
             Raylib.SetMusicPitch(_music[_currentMusic], _normalMusicPitch);
         }
+    }
+
+    private void OnBonusRoundStarted(BonusRoundStartedEvent evt)
+    {
+        // Play a special sound for bonus round start
+        PlaySound(SoundType.LevelUp);
+        
+        // Make music a bit faster for the bonus round
+        if (_currentMusic != MusicType.None)
+        {
+            Raylib.SetMusicPitch(_music[_currentMusic], 1.15f);
+        }
+    }
+
+    private void OnBonusRoundCompleted(BonusRoundCompletedEvent evt)
+    {
+        // Play a special completion sound
+        PlaySound(SoundType.GameOver);
+        
+        // Reset music pitch
+        if (_currentMusic != MusicType.None)
+        {
+            Raylib.SetMusicPitch(_music[_currentMusic], _normalMusicPitch);
+        }
+    }
+
+    private void OnCheatActivated(CheatActivatedEvent evt)
+    {
+        // Play a special sound for cheat activation - use powerUp sound with modified pitch
+        var sound = _sounds[SoundType.PowerUp];
+        Raylib.SetSoundPitch(sound, 0.6f); // Lower pitch for a "secret found" effect
+        Raylib.SetSoundVolume(sound, _soundVolume * 1.5f);
+        Raylib.PlaySound(sound);
+        
+        // Reset to default after playing
+        Raylib.SetSoundPitch(sound, _defaultPitch);
+        Raylib.SetSoundVolume(sound, _soundVolume);
     }
 
     private void PlaySound(SoundType soundType)

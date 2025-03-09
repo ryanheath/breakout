@@ -34,6 +34,14 @@ public record TimerExpiredEvent : IGameEvent;
 public record MusicToggleEvent(bool Enabled) : IGameEvent;
 public record SoundVolumeChangedEvent(float Volume) : IGameEvent;
 
+// Bonus round events
+public record BonusRoundRequestEvent(bool IsCheat = false) : IGameEvent;
+public record BonusRoundStartedEvent(bool IsCheat = false) : IGameEvent;
+public record BonusRoundCompletedEvent(int Score) : IGameEvent;
+
+// Cheat events
+public record CheatActivatedEvent(string CheatName) : IGameEvent;
+
 // Note: The following events are defined in separate files:
 // - BrickHitEvent, AllBricksDestroyedEvent (in BrickEvents.cs)
 // - LevelAdvanceRequestEvent, LevelAdvancedEvent, AllLevelsCompletedEvent, LevelResetEvent (in LevelEvents.cs)

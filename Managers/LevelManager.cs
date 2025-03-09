@@ -7,6 +7,7 @@ public class LevelManager(GameState gameState) : ManagerBase(gameState)
         EventBus.Subscribe<BrickHitEvent>(OnBrickHit);
         EventBus.Subscribe<GameRestartEvent>(OnGameRestart);
         EventBus.Subscribe<LevelAdvanceRequestEvent>(OnLevelAdvanceRequest);
+        EventBus.Subscribe<BonusRoundRequestEvent>(OnBonusRoundRequest);
     }
     
     public override void Cleanup()
@@ -14,6 +15,7 @@ public class LevelManager(GameState gameState) : ManagerBase(gameState)
         EventBus.Unsubscribe<BrickHitEvent>(OnBrickHit);
         EventBus.Unsubscribe<GameRestartEvent>(OnGameRestart);
         EventBus.Unsubscribe<LevelAdvanceRequestEvent>(OnLevelAdvanceRequest);
+        EventBus.Unsubscribe<BonusRoundRequestEvent>(OnBonusRoundRequest);
         
         gameState.ClearLevel();
     }
@@ -33,7 +35,14 @@ public class LevelManager(GameState gameState) : ManagerBase(gameState)
             
             if (AreAllBricksDestroyed())
             {
-                EventBus.Publish(new AllBricksDestroyedEvent(gameState.CurrentLevel));
+                if (gameState.InBonusRound)
+                {
+                    EventBus.Publish(new BonusRoundCompletedEvent(gameState.Score));
+                }
+                else
+                {
+                    EventBus.Publish(new AllBricksDestroyedEvent(gameState.CurrentLevel));
+                }
             }
         }
     }
@@ -113,6 +122,14 @@ public class LevelManager(GameState gameState) : ManagerBase(gameState)
         {
             EventBus.Publish(new AllLevelsCompletedEvent(gameState.Score));
         }
+    }
+
+    private void OnBonusRoundRequest(BonusRoundRequestEvent evt)
+    {
+        gameState.ClearLevel();
+        CreateBonusLevel();
+        gameState.StartBonusRound();
+        EventBus.Publish(new BonusRoundStartedEvent(evt.IsCheat));
     }
     
     public void CreateLevel()
@@ -322,29 +339,45 @@ public class LevelManager(GameState gameState) : ManagerBase(gameState)
     
     private void CreateBonusLevel()
     {
-        // Create a special bonus level with unique brick patterns
-        int centerX = gameState.ScreenWidth / 2;
-        int centerY = gameState.ScreenHeight / 3;
-        int radius = 150;
+        // Double the points for all bricks in the bonus round
+        gameState.SetScoreMultiplier(2);
+
+        // Create a special pattern for the bonus round
+        int brickWidth = 40;
+        int brickHeight = 20;
+        int spacing = 5;
+        int yOffset = 80;
+        int rows = 7;
+        int cols = 13;
+
+        CreateBricksGrid(
+            rows, cols, brickWidth, brickHeight, spacing, yOffset,
+            (row, col) => true, // Always create brick
+            (row, col) => {
+                // Create a colorful pattern for bonus level
+                return row switch {
+                    0 => Color.Red,
+                    1 => Color.Orange,
+                    2 => Color.Yellow,
+                    3 => Color.Green,
+                    4 => Color.Blue,
+                    5 => Color.Purple,
+                    _ => Color.Pink
+                };
+            },
+            (row, col) => {
+                // Make some bricks stronger in the bonus round
+                if ((row + col) % 3 == 0)
+                    return 2;
+                return 1;
+            }
+        );
+
+        // Add more special bricks for the bonus round
+        AddSpecialBricks(0.3f);  // 30% chance for special bricks
         
-        // Create circular pattern
-        for (int angle = 0; angle < 360; angle += 15)
-        {
-            float rad = angle * MathF.PI / 180;
-            float x = centerX + MathF.Cos(rad) * radius - 30;
-            float y = centerY + MathF.Sin(rad) * radius - 15;
-            
-            Color color = new Color(
-                (byte)(128 + MathF.Sin(rad) * 127),
-                (byte)(128 + MathF.Cos(rad) * 127),
-                (byte)255,
-                (byte)255
-            );
-            
-            gameState.Bricks.Add(new Brick(x, y, 60, 30, color, 1));
-        }
-        
-        AddSpecialBricks(0.5f);
+        // Add extra power-ups for bonus round
+        AddBonusRoundPowerUps();
     }
     
     private void AddSpecialBricks(float specialBrickChance)
@@ -372,6 +405,25 @@ public class LevelManager(GameState gameState) : ManagerBase(gameState)
                 {
                     brick.Type = Brick.BrickType.MultiScore;
                 }
+            }
+        }
+    }
+    
+    private void AddBonusRoundPowerUps()
+    {
+        if (gameState.Bricks.Count < 20) return;
+        
+        // Get random unique brick indices
+        var indexes = GetRandomUniqueIndexes(20, 0, gameState.Bricks.Count);
+        
+        if (indexes.Count >= 20)
+        {
+            // Add more power-ups than usual for the bonus round
+            for (int i = 0; i < 5; i++)
+            {
+                AddPowerUp(gameState.Bricks[indexes[i]], PowerUp.Type.PaddleGrow);
+                AddPowerUp(gameState.Bricks[indexes[i+5]], PowerUp.Type.ExtraBall);
+                AddPowerUp(gameState.Bricks[indexes[i+10]], PowerUp.Type.Gun);
             }
         }
     }

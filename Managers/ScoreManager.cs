@@ -35,6 +35,7 @@ public class ScoreManager(GameState gameState) : ManagerBase(gameState)
         EventBus.Subscribe<LevelCompletedEvent>(OnLevelCompleted);
         EventBus.Subscribe<PowerUpCollectedEvent>(OnPowerUpCollected);
         EventBus.Subscribe<GameRestartEvent>(OnGameRestart);
+        EventBus.Subscribe<BonusRoundCompletedEvent>(OnBonusRoundCompleted);
     }
     
     public override void Cleanup()
@@ -45,6 +46,7 @@ public class ScoreManager(GameState gameState) : ManagerBase(gameState)
         EventBus.Unsubscribe<LevelCompletedEvent>(OnLevelCompleted);
         EventBus.Unsubscribe<PowerUpCollectedEvent>(OnPowerUpCollected);
         EventBus.Unsubscribe<GameRestartEvent>(OnGameRestart);
+        EventBus.Unsubscribe<BonusRoundCompletedEvent>(OnBonusRoundCompleted);
     }
     
     private void OnBrickHit(BrickHitEvent evt)
@@ -156,6 +158,26 @@ public class ScoreManager(GameState gameState) : ManagerBase(gameState)
         gameState.Reset(evt.InitialLives);
         ResetCombo();
         _scorePopups.Clear();
+    }
+    
+    private void OnBonusRoundCompleted(BonusRoundCompletedEvent evt)
+    {
+        // Award a big bonus for completing the bonus round
+        int bonusPoints = 1000;
+        gameState.AddScore(bonusPoints);
+        
+        Vector2 position = new(
+            gameState.ScreenWidth / 2,
+            gameState.ScreenHeight / 2 - 80
+        );
+        
+        _scorePopups.Add(new ScorePopup($"BONUS ROUND COMPLETE: +{bonusPoints}", position, Color.Gold));
+        
+        // Award an extra life for completing the bonus round
+        gameState.AddLife();
+        
+        // Reset combo
+        ResetCombo();
     }
     
     private void ResetCombo()
