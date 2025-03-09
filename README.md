@@ -34,6 +34,8 @@ This is a recreation of the classic Breakout arcade game where the player contro
 - **Left/Right Arrow Keys**: Move paddle
 - **Space**: Launch ball / Pause game
 - **Escape**: Return to menu / Exit game
+- **S**: Toggle music on/off
+- **+/-**: Increase/decrease sound effects volume
 
 ## Development
 

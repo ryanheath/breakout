@@ -11,6 +11,10 @@ public class UIManager(GameState gameState) : ManagerBase(gameState)
     private float _musicToggleNotificationTimer = 0f;
     private const float MusicToggleNotificationDuration = 2f;
     private bool _musicEnabled = true;
+    private bool _showSoundVolumeNotification = false;
+    private float _soundVolumeNotificationTimer = 0f;
+    private const float SoundVolumeNotificationDuration = 2f;
+    private float _currentSoundVolume = 1.0f;
     
     public override void Initialize()
     {
@@ -26,6 +30,7 @@ public class UIManager(GameState gameState) : ManagerBase(gameState)
         EventBus.Subscribe<ScoreChangedEvent>(OnScoreChanged);
         EventBus.Subscribe<MusicToggleEvent>(OnMusicToggle);
         EventBus.Subscribe<ViewHighScoresEvent>(OnViewHighScores); // Add this line
+        EventBus.Subscribe<SoundVolumeChangedEvent>(OnSoundVolumeChanged);
     }
     
     public override void Cleanup()
@@ -35,6 +40,7 @@ public class UIManager(GameState gameState) : ManagerBase(gameState)
         EventBus.Unsubscribe<ScoreChangedEvent>(OnScoreChanged);
         EventBus.Unsubscribe<MusicToggleEvent>(OnMusicToggle);
         EventBus.Unsubscribe<ViewHighScoresEvent>(OnViewHighScores); // Add this line
+        EventBus.Unsubscribe<SoundVolumeChangedEvent>(OnSoundVolumeChanged);
         
         _highScoreManager.Cleanup();
     }
@@ -79,6 +85,13 @@ public class UIManager(GameState gameState) : ManagerBase(gameState)
         _musicEnabled = evt.Enabled;
     }
 
+    private void OnSoundVolumeChanged(SoundVolumeChangedEvent evt)
+    {
+        _showSoundVolumeNotification = true;
+        _soundVolumeNotificationTimer = 0f;
+        _currentSoundVolume = evt.Volume;
+    }
+
     public override void Update(float deltaTime)
     {
         // Update music toggle notification timer
@@ -88,6 +101,16 @@ public class UIManager(GameState gameState) : ManagerBase(gameState)
             if (_musicToggleNotificationTimer >= MusicToggleNotificationDuration)
             {
                 _showMusicToggleNotification = false;
+            }
+        }
+        
+        // Update sound volume notification timer
+        if (_showSoundVolumeNotification)
+        {
+            _soundVolumeNotificationTimer += deltaTime;
+            if (_soundVolumeNotificationTimer >= SoundVolumeNotificationDuration)
+            {
+                _showSoundVolumeNotification = false;
             }
         }
         
@@ -225,6 +248,29 @@ public class UIManager(GameState gameState) : ManagerBase(gameState)
         // Display music status in top right corner
         string musicStatus = _musicEnabled ? "Music: ON (S)" : "Music: OFF (S)";
         Raylib.DrawText(musicStatus, gameState.ScreenWidth - 120, 40, 16, Color.Gray);
+        
+        // Display sound volume notification if active
+        if (_showSoundVolumeNotification)
+        {
+            string volumeText = $"Sound Volume: {(int)(_currentSoundVolume * 100)}%";
+            int volumeWidth = Raylib.MeasureText(volumeText, 20);
+            Raylib.DrawText(volumeText, 
+                gameState.ScreenWidth / 2 - volumeWidth / 2, 
+                gameState.ScreenHeight - 40, 
+                20, 
+                Color.White);
+            
+            // Draw volume bar
+            int barWidth = 200;
+            int barHeight = 10;
+            int barX = gameState.ScreenWidth / 2 - barWidth / 2;
+            int barY = gameState.ScreenHeight - 20;
+            
+            // Draw background bar
+            Raylib.DrawRectangle(barX, barY, barWidth, barHeight, Color.DarkGray);
+            // Draw filled portion
+            Raylib.DrawRectangle(barX, barY, (int)(barWidth * _currentSoundVolume), barHeight, Color.Green);
+        }
     }
     
     private void DrawHighScores()

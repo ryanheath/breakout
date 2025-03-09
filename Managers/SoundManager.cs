@@ -13,6 +13,8 @@ public class SoundManager(GameState gameState) : ManagerBase(gameState)
     private bool _musicEnabled = true;
     private const float _normalMusicPitch = 1.0f;
     private const float _speedupMusicPitch = 1.25f; // 25% faster when speed power-up is active
+    private float _soundVolume = 1.0f;  // Default full volume
+    private const float VolumeStep = 0.1f;  // 10% volume change with each key press
 
     private enum SoundType
     {
@@ -177,6 +179,16 @@ public class SoundManager(GameState gameState) : ManagerBase(gameState)
             ToggleMusic();
         }
         
+        // Check for volume control keys (+ and - keys)
+        if (Raylib.IsKeyPressed(KeyboardKey.Equal))  // + key
+        {
+            ApplySoundVolume(true);
+        }
+        else if (Raylib.IsKeyPressed(KeyboardKey.Minus))  // - key
+        {
+            ApplySoundVolume(false);
+        }
+        
         // Update music streams if music is enabled
         if (_musicEnabled && _currentMusic != MusicType.None)
         {
@@ -256,16 +268,33 @@ public class SoundManager(GameState gameState) : ManagerBase(gameState)
         }
     }
     
-    public void SetMusicVolume(float volume)
+    private void SetMusicVolume(float volume)
     {
-        _musicVolume = Math.Clamp(volume, 0f, 1f);
+        _musicVolume = Math.Clamp(volume, 0f, 0.5f);
         
         if (_currentMusic != MusicType.None)
         {
             Raylib.SetMusicVolume(_music[_currentMusic], _musicVolume);
         }
     }
+    
+    private void ApplySoundVolume(bool increase)
+    {
+        // Increase or decrease sound volume based on the flag
+        _soundVolume += increase ? +VolumeStep : -VolumeStep;
+        _soundVolume = Math.Clamp(_soundVolume, 0.0f, 1.0f);
 
+        // Apply volume to all loaded sounds
+        foreach (var sound in _sounds.Values)
+        {
+            Raylib.SetSoundVolume(sound, _soundVolume);
+        }
+
+        SetMusicVolume(_soundVolume);
+
+        EventBus.Publish(new SoundVolumeChangedEvent(_soundVolume));
+    }
+    
     private void OnBrickHit(BrickHitEvent _) => PlaySound(SoundType.BrickHit);
     private void OnWallCollision(WallCollisionEvent _) => PlaySound(SoundType.WallHit);
     private void OnPaddleCollision(PaddleCollisionEvent _) => PlaySound(SoundType.PaddleHit);
@@ -280,13 +309,13 @@ public class SoundManager(GameState gameState) : ManagerBase(gameState)
     {
         // Play explosion sound with higher volume and lower pitch for a more impactful effect
         var sound = _sounds[SoundType.Explosion];
-        Raylib.SetSoundVolume(sound, 0.8f);
-        Raylib.SetSoundPitch(sound, 0.7f);  // Lower pitch makes it sound more powerful
+        Raylib.SetSoundVolume(sound, Math.Min(_soundVolume * 1.5f, 1f));  // Double volume for explosion
+        Raylib.SetSoundPitch(sound, 0.5f);  // Lower pitch makes it sound more powerful
         Raylib.PlaySound(sound);
         
         // Reset to default after playing
         Raylib.SetSoundPitch(sound, _defaultPitch);
-        Raylib.SetSoundVolume(sound, 1.0f);
+        Raylib.SetSoundVolume(sound, _soundVolume);
     }
 
     private void OnGamePaused(GamePausedEvent _)

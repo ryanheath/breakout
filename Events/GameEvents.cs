@@ -32,6 +32,7 @@ public record TimerExpiredEvent : IGameEvent;
 
 // Audio events
 public record MusicToggleEvent(bool Enabled) : IGameEvent;
+public record SoundVolumeChangedEvent(float Volume) : IGameEvent;
 
 // Note: The following events are defined in separate files:
 // - BrickHitEvent, AllBricksDestroyedEvent (in BrickEvents.cs)
