@@ -140,7 +140,7 @@ public class ExplosionManager(GameState gameState) : ManagerBase(gameState)
         _particleSystem.Draw();
     }
     
-    public void ApplyScreenShake(Camera2D camera)
+    public Camera2D ApplyScreenShake(Camera2D camera)
     {
         if (_screenShakeIntensity > 0)
         {
@@ -162,6 +162,8 @@ public class ExplosionManager(GameState gameState) : ManagerBase(gameState)
             // Reset to zero offset when no shake
             camera.Offset = Vector2.Zero;
         }
+
+        return camera;
     }
     
     public int TotalEffectCount => _particleSystem.ParticleCount + _debrisSystem.DebrisCount;

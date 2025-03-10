@@ -62,11 +62,8 @@ public class Game(GameState gameState)
             Target = new Vector2(0, 0),
             Offset = new Vector2(gameState.ScreenWidth / 2, gameState.ScreenHeight / 2), // Center offset
             Rotation = 0.0f,
-            Zoom = 1.0f
+            Zoom = 2.5f
         };
-        
-        // Don't apply any DPI scaling - it causes more issues than it solves
-        // We'll handle position/size calculation directly based on window dimensions
         
         // Start at main menu instead of directly creating level
         gameState.SetMainMenu();
@@ -114,7 +111,6 @@ public class Game(GameState gameState)
         gameState.Paddle.Update(gameState.ScreenWidth);
         gameState.MainBall.Update();
         
-        //powerUpManager.Update(deltaTime);
         levelManager.UpdatePowerUps();
         
         collisionManager.HandleWallCollisions(gameState.MainBall);
@@ -153,15 +149,15 @@ public class Game(GameState gameState)
         Raylib.BeginDrawing();
         Raylib.ClearBackground(Color.Black);
         
-        // Apply screen shake to camera
-        explosionManager.ApplyScreenShake(_camera);
-        
         // Only draw game elements when not in main menu
         if (gameState.CurrentState != GameState.State.MainMenu)
         {
+            // Apply screen shake to camera
+            _camera = explosionManager.ApplyScreenShake(_camera);
+
             // Begin camera mode with screen shake
-            //Raylib.BeginMode2D(_camera);
-            
+            Raylib.BeginMode2D(_camera);
+        
             // Draw bricks normally - removed shader effects
             levelManager.DrawBricks();
             
@@ -182,7 +178,7 @@ public class Game(GameState gameState)
             powerUpManager.DrawGun();
             powerUpManager.DrawBullets();
 
-            //Raylib.EndMode2D(); // End camera mode
+            Raylib.EndMode2D(); // End camera mode
             
             // Draw UI elements without camera effects (no shake)
             uiManager.DrawUI();
