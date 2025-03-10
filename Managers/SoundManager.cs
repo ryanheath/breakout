@@ -15,6 +15,20 @@ public class SoundManager(GameState gameState) : ManagerBase(gameState)
     private const float _speedupMusicPitch = 1.25f; // 25% faster when speed power-up is active
     private float _soundVolume = 1.0f;  // Default full volume
     private const float VolumeStep = 0.1f;  // 10% volume change with each key press
+    
+    // Settings constants
+    private const string SettingsFileName = "sound-settings.json";
+    private const float DefaultMusicVolume = 0.5f;
+    private const float DefaultSoundVolume = 1.0f;
+    private const bool DefaultMusicEnabled = true;
+
+    // Sound settings class for serialization
+    private class SoundSettings
+    {
+        public float MusicVolume { get; set; }
+        public float SoundVolume { get; set; }
+        public bool MusicEnabled { get; set; }
+    }
 
     private enum SoundType
     {
@@ -44,6 +58,9 @@ public class SoundManager(GameState gameState) : ManagerBase(gameState)
     {
         Raylib.InitAudioDevice();
 
+        // Load user settings before initializing sounds
+        LoadSettings();
+
         _sounds = new Dictionary<SoundType, Sound>
         {
             { SoundType.PaddleHit, Raylib.LoadSound(@"resources\186398__lloydevans09__balsa-hit-4.wav") },
@@ -72,6 +89,12 @@ public class SoundManager(GameState gameState) : ManagerBase(gameState)
         foreach (var music in _music.Values)
         {
             Raylib.SetMusicVolume(music, _musicVolume);
+        }
+        
+        // Set sound volume for all sounds
+        foreach (var sound in _sounds.Values)
+        {
+            Raylib.SetSoundVolume(sound, _soundVolume);
         }
 
         // Subscribe to events
@@ -227,6 +250,9 @@ public class SoundManager(GameState gameState) : ManagerBase(gameState)
         
         // Show a notification that music was toggled
         EventBus.Publish(new MusicToggleEvent(_musicEnabled));
+        
+        // Save the new settings
+        SaveSettings();
     }
     
     private void PlayMusic(MusicType type)
@@ -299,6 +325,9 @@ public class SoundManager(GameState gameState) : ManagerBase(gameState)
         SetMusicVolume(_soundVolume);
 
         EventBus.Publish(new SoundVolumeChangedEvent(_soundVolume));
+        
+        // Save the new settings
+        SaveSettings();
     }
     
     private void OnBrickHit(BrickHitEvent _) => PlaySound(SoundType.BrickHit);
@@ -429,5 +458,53 @@ public class SoundManager(GameState gameState) : ManagerBase(gameState)
         }
 
         Raylib.PlaySound(sound);
+    }
+    
+    private void SaveSettings()
+    {
+        try
+        {
+            var settings = new SoundSettings
+            {
+                MusicVolume = _musicVolume,
+                SoundVolume = _soundVolume,
+                MusicEnabled = _musicEnabled
+            };
+            
+            string json = System.Text.Json.JsonSerializer.Serialize(settings);
+            File.WriteAllText(SettingsFileName, json);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving sound settings: {ex.Message}");
+        }
+    }
+    
+    private void LoadSettings()
+    {
+        // Use defaults
+        _musicVolume = DefaultMusicVolume;
+        _soundVolume = DefaultSoundVolume;
+        _musicEnabled = DefaultMusicEnabled;
+
+        try
+        {
+            if (File.Exists(SettingsFileName))
+            {
+                string json = File.ReadAllText(SettingsFileName);
+                var settings = System.Text.Json.JsonSerializer.Deserialize<SoundSettings>(json);
+                
+                if (settings != null)
+                {
+                    _musicVolume = Math.Clamp(settings.MusicVolume, 0f, 0.5f);
+                    _soundVolume = Math.Clamp(settings.SoundVolume, 0f, 1f);
+                    _musicEnabled = settings.MusicEnabled;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading sound settings: {ex.Message}");
+        }
     }
 }

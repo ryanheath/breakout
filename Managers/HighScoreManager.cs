@@ -79,6 +79,8 @@ public class HighScoreManager(GameState gameState) : ManagerBase(gameState)
     
     private void LoadHighScores()
     {
+        _highScores = [];
+
         try
         {
             if (File.Exists(HighScoreFilePath))
@@ -90,7 +92,6 @@ public class HighScoreManager(GameState gameState) : ManagerBase(gameState)
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading high scores: {ex.Message}");
-            _highScores = [];
         }
     }
     
